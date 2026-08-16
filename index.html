@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oldies.com Scraper Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --font: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --bg-color: #f3f4f6;
+      --glass-bg: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.5);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --text-main: #1f2937;
+      --text-muted: #6b7280;
+    }
+    body {
+      font-family: var(--font);
+      background: var(--bg-color);
+      background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+      background-attachment: fixed;
+      background-size: cover;
+      color: var(--text-main);
+      min-height: 100vh;
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .page-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: white;
+    }
+    .page-header h1 {
+      font-weight: 700;
+      letter-spacing: -1px;
+      font-size: 2.5rem;
+    }
+    .status-pill {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      display: inline-block;
+      margin-top: 1rem;
+    }
+    .form-control, .form-select {
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      padding: 0.75rem 1rem;
+      background: rgba(255,255,255,0.9);
+      transition: all 0.2s;
+    }
+    .form-control:focus {
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+      border-color: var(--primary);
+    }
+    .btn {
+      border-radius: 12px;
+      padding: 0.75rem 1.5rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background-color: var(--primary);
+      border: none;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    .btn-primary:hover {
+      background-color: var(--primary-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    }
+    .progress {
+      height: 12px;
+      border-radius: 999px;
+      background: #e5e7eb;
+      overflow: hidden;
+    }
+    .progress-bar {
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stat-box {
+      background: white;
+      border-radius: 16px;
+      padding: 1.25rem;
+      border: 1px solid #f3f4f6;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1;
+    }
+    .table-container {
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #f3f4f6;
+    }
+    .table {
+      margin-bottom: 0;
+    }
+    .table thead th {
+      background: #f9fafb;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 2px solid #e5e7eb;
+      padding: 1rem;
+    }
+    .table tbody td {
+      padding: 1rem;
+      vertical-align: middle;
+      color: #374151;
+      font-size: 0.9rem;
+    }
+    .badge-custom {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 500;
+      font-size: 0.75rem;
+    }
+    .badge-pending { background: #fef3c7; color: #92400e; }
+    .badge-done { background: #d1fae5; color: #065f46; }
+    .badge-error { background: #fee2e2; color: #991b1b; }
+    
+    /* Animations */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .pulsing { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-header">
+      <h1>Oldies.com Extractor</h1>
+      <p class="lead opacity-75">Professional URL scraping tool for Item Numbers, Prices, and ISBNs.</p>
+      <div class="status-pill">System Status: <span id="statusBadge" class="fw-bold">Idle</span></div>
+    </div>
+
+    <div class="row g-4">
+      <!-- Left Column: Controls & Stats -->
+      <div class="col-12 col-lg-4">
+        
+        <!-- Controls Card -->
+        <div class="glass-card">
+          <h5 class="fw-bold mb-3">Launch Extraction</h5>
+          <div class="mb-3">
+            <label class="form-label fw-medium small text-muted">Target URL</label>
+            <input type="url" class="form-control" id="urlInput" placeholder="https://www.oldiesbook.com/new" value="https://www.oldiesbook.com/new" />
+          </div>
+          <div class="row g-2 mb-4">
+            <div class="col-6">
+              <label class="form-label fw-medium small text-muted">Browsers</label>
+              <input type="number" class="form-control" id="workerInput" min="1" max="10" value="4" />
+            </div>
+            <div class="col-6 d-flex align-items-end pb-2">
+              <div class="form-check form-switch w-100">
+                <input class="form-check-input" type="checkbox" id="headlessToggle" checked />
+                <label class="form-check-label small fw-medium" for="headlessToggle">Headless Mode</label>
+              </div>
+            </div>
+          </div>
+          <div class="d-grid gap-2">
+            <button class="btn btn-primary" id="startBtn">Start Scraping</button>
+            <button class="btn btn-outline-danger" id="cancelBtn" disabled>Stop</button>
+            <button class="btn btn-success mt-2" id="downloadBtn" disabled>Download Excel (.xlsx)</button>
+            <button class="btn btn-warning mt-1" id="resumeBtn" style="display:none;">Resume Paused Run</button>
+            <button class="btn btn-outline-secondary mt-3 btn-sm" id="clearDbBtn">🗑️ Clear Entire Database</button>
+          </div>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="glass-card">
+          <h5 class="fw-bold mb-3">Live Metrics</h5>
+          <div class="row g-3">
+            <div class="col-6">
+              <div class="stat-box">
+                <div class="stat-label">Elapsed</div>
+                <div class="stat-value" id="elapsedVal">00:00</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="stat-box">
+                <div class="stat-label">ETA</div>
+                <div class="stat-value" id="etaVal">--:--</div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="stat-box">
+                <div class="stat-label">Progress</div>
+                <div class="stat-value text-primary" id="progressVal">0 / 0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Results Table -->
+      <div class="col-12 col-lg-8">
+        <div class="glass-card h-100 d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">Extraction Results</h5>
+            <div id="loadingIndicator" class="spinner-border spinner-border-sm text-primary" role="status" style="display:none;">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+          
+          <div class="progress mb-4">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+          </div>
+
+          <div class="table-container flex-grow-1">
+            <table id="resultsTable" class="table table-hover w-100">
+              <thead>
+                <tr>
+                  <th>UPC</th>
+                  <th>Sale Price</th>
+                  <th>Format</th>
+                  <th>Availability</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+  <script>
+    function formatTime(seconds) {
+      if (!seconds || !Number.isFinite(seconds) || seconds < 0) return '--:--';
+      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    $(document).ready(function() {
+      let currentRunId = null;
+      let pollInterval = null;
+
+      const table = $('#resultsTable').DataTable({
+        serverSide: true,
+        processing: false,
+        ordering: false,
+        searching: false,
+        pageLength: 10,
+        ajax: function (data, callback, settings) {
+          if (!currentRunId) {
+            callback({ data: [], recordsTotal: 0, recordsFiltered: 0 });
+            return;
+          }
+          $.get(`/api/rows/${currentRunId}?start=${data.start}&length=${data.length}`, function(res) {
+            callback(res);
+          });
+        },
+        columns: [
+          { 
+            data: 0, // UPC
+            render: (data, type, row) => data ? `<strong>${data}</strong>` : `<span class="text-muted">-</span>`
+          },
+          { 
+            data: 1, // Sale Price
+            render: (data) => data ? `<span class="text-success fw-bold">${data}</span>` : `<span class="text-muted">-</span>`
+          },
+          { 
+            data: 6, // Format
+            render: (data) => data ? `<span class="badge bg-secondary">${data}</span>` : `<span class="text-muted">-</span>`
+          },
+          { 
+            data: 2, // Availability
+            render: (data) => data ? data : `<span class="text-muted">-</span>`
+          },
+          { 
+            data: 7, // Status
+            render: function(data, type, row) {
+                if (data === 'done') return `<span class="badge-custom badge-done">Extracted</span>`;
+                if (data === 'pending') return `<span class="badge-custom badge-pending">Pending</span>`;
+                if (data === 'processing') return `<span class="badge-custom badge-pending pulsing">Processing</span>`;
+                return `<span class="badge-custom badge-error" title="${row[9]}">Error</span>`; // row[9] is error
+            }
+          }
+        ]
+      });
+
+      function updateUI(data) {
+        $('#statusBadge').text(data.status.toUpperCase());
+        $('#elapsedVal').text(formatTime(data.elapsed));
+        $('#etaVal').text(formatTime(data.eta));
+        $('#progressVal').text(`${data.done} / ${data.total}`);
+        
+        const pct = data.total > 0 ? (data.done / data.total) * 100 : 0;
+        $('#progressBar').css('width', `${pct}%`);
+
+        if (data.status === 'done' || data.status === 'cancelled' || data.status === 'error') {
+            stopPolling();
+            $('#startBtn').prop('disabled', false);
+            $('#cancelBtn').prop('disabled', true);
+            $('#downloadBtn').prop('disabled', data.total === 0);
+            $('#loadingIndicator').hide();
+        }
+      }
+
+      function pollProgress() {
+        if (!currentRunId) return;
+        $.get(`/api/progress/${currentRunId}`, function(data) {
+            updateUI(data);
+            table.ajax.reload(null, false);
+        });
+      }
+
+      function startPolling() {
+          if (pollInterval) clearInterval(pollInterval);
+          pollInterval = setInterval(pollProgress, 1500);
+          $('#loadingIndicator').show();
+      }
+
+      function stopPolling() {
+          if (pollInterval) clearInterval(pollInterval);
+          pollInterval = null;
+      }
+
+      // Check for active run on load
+      $.get('/api/latest').done(function(data) {
+          if (data && data.run_id) {
+              currentRunId = data.run_id;
+              $.get(`/api/progress/${currentRunId}`, function(prog) {
+                  updateUI(prog);
+                  table.ajax.reload();
+                  if (prog.status === 'extracting' || prog.status === 'discovering') {
+                      $('#startBtn').prop('disabled', true);
+                      $('#cancelBtn').prop('disabled', false);
+                      startPolling();
+                  } else if (prog.status === 'paused') {
+                      $('#resumeBtn').show();
+                  } else {
+                      $('#downloadBtn').prop('disabled', prog.done === 0);
+                  }
+              });
+          }
+      });
+
+      $('#startBtn').click(function() {
+        const url = $('#urlInput').val();
+        const workers = $('#workerInput').val();
+        const headless = $('#headlessToggle').is(':checked');
+
+        if (!url) return alert('Please enter a target URL.');
+
+        $('#startBtn').prop('disabled', true);
+        $('#cancelBtn').prop('disabled', false);
+        $('#downloadBtn').prop('disabled', true);
+        $('#resumeBtn').hide();
+        $('#progressBar').css('width', '0%');
+        $('#progressVal').text('0 / 0');
+
+        $.ajax({
+            url: '/api/run',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ url: url, workers: workers, headless: headless }),
+            success: function(res) {
+                currentRunId = res.run_id;
+                table.ajax.reload();
+                startPolling();
+            },
+            error: function() {
+                alert('Failed to start run.');
+                $('#startBtn').prop('disabled', false);
+                $('#cancelBtn').prop('disabled', true);
+            }
+        });
+      });
+
+      $('#cancelBtn').click(function() {
+          if (!currentRunId) return;
+          $('#cancelBtn').prop('disabled', true);
+          $.post(`/api/cancel/${currentRunId}`);
+      });
+      
+      $('#resumeBtn').click(function() {
+          if (!currentRunId) return;
+          $('#resumeBtn').hide();
+          $('#startBtn').prop('disabled', true);
+          $('#cancelBtn').prop('disabled', false);
+          $.post(`/api/resume/${currentRunId}`, function() {
+              startPolling();
+          });
+      });
+
+      $('#downloadBtn').click(function() {
+          if (!currentRunId) return;
+          window.location.href = `/api/export/${currentRunId}`;
+      });
+
+      $('#clearDbBtn').click(function() {
+          if (confirm("Are you sure you want to completely erase the database? This will delete all history and cannot be undone.")) {
+              $.post('/api/clear_db', function() {
+                  currentRunId = null;
+                  stopPolling();
+                  table.ajax.reload();
+                  $('#statusBadge').text('IDLE');
+                  $('#elapsedVal').text('00:00');
+                  $('#etaVal').text('--:--');
+                  $('#progressVal').text('0 / 0');
+                  $('#progressBar').css('width', '0%');
+                  $('#startBtn').prop('disabled', false);
+                  $('#cancelBtn').prop('disabled', true);
+                  $('#downloadBtn').prop('disabled', true);
+                  $('#resumeBtn').hide();
+                  alert("Database completely cleared!");
+              });
+          }
+      });
+    });
+  </script>
+</body>
+</html>
