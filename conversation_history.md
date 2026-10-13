@@ -28,3 +28,10 @@ This file contains the historical context of the Oldies.com Scraper project. You
 ### 5. Data Handling
 - We use a **SQLite database** to store `pending` and `done` statuses. This prevents RAM overload and ensures that if the server crashes, it doesn't lose all the extracted data.
 - The UI fetches data using server-side pagination to prevent freezing the browser when thousands of rows are loaded.
+
+### 6. AWS WAF Bot Challenge (October 2026)
+- Around September/October 2026 Oldies.com put AWS WAF in front of the site. Plain HTTP clients now receive `202 Accepted` with an empty body and the header `x-amzn-waf-action: challenge`. The old scraper treated the empty body as a failed fetch, so every run printed "Failed to fetch discovery page" and finished as DONE with 0 items.
+- **The Solution:** `fetch_oldies.py` detects the challenge and calls `refresh_waf_token()`, which opens the installed Google Chrome through Playwright (`channel="chrome"`, falls back to bundled Chromium), lets it solve the JS challenge and keeps the `aws-waf-token` cookie. All normal `urllib` requests then send that cookie with the same User-Agent. When the token expires the challenge reappears and is solved again automatically (the global lock makes the other workers wait).
+- Headless Chrome identifies itself as `HeadlessChrome` in its User-Agent, and the WAF answers that with a hard 403, so the UA is rewritten to plain `Chrome`. Do not remove this.
+- The site is geo-blocked outside the US (403). For testing from abroad, set the `OLDIES_PROXY` environment variable (e.g. `http://host:port`) to route both urllib and Chrome through a US proxy.
+- If the listing page cannot be loaded at all, the run now ends with status `error` and the reason is shown in the UI.
