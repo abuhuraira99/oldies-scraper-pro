@@ -35,3 +35,7 @@ This file contains the historical context of the Oldies.com Scraper project. You
 - Headless Chrome identifies itself as `HeadlessChrome` in its User-Agent, and the WAF answers that with a hard 403, so the UA is rewritten to plain `Chrome`. Do not remove this.
 - The site is geo-blocked outside the US (403). For testing from abroad, set the `OLDIES_PROXY` environment variable (e.g. `http://host:port`) to route both urllib and Chrome through a US proxy.
 - If the listing page cannot be loaded at all, the run now ends with status `error` and the reason is shown in the UI.
+
+### 7. Automatic Excel Save & Download
+- The client often forgets to click Download and later restarts the VPS. Every finished run (including resumed runs) is now written automatically to `exports/oldies_export_<start time>_<run id>.xlsx` on the server **before** the run is marked `done`, so it does not depend on the browser being open.
+- If the UI tab is open when the run finishes, it also downloads the file automatically once, and the Download button then reads "✓ Downloaded · Download Again" (remembered per run in localStorage).

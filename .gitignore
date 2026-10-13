@@ -5,3 +5,4 @@ db.sqlite
 *.zip
 .env
 .DS_Store
+exports/

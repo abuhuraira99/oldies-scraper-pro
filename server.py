@@ -16,6 +16,8 @@ app = Flask(__name__, static_folder='.', static_url_path='')
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DB_PATH = PROJECT_ROOT / "db.sqlite"
+# Finished runs are saved here automatically so data is never lost if nobody clicks Download
+EXPORTS_DIR = PROJECT_ROOT / "exports"
 
 # Create Database tables
 def init_db():
@@ -104,16 +106,54 @@ def run_pipeline(run_id, url, workers, headless):
             conn.commit()
 
         # Phase 2: Start workers to process pending products
-        start_extraction_workers(run_id, DB_PATH, workers, headless)
-
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("UPDATE runs SET status = 'done', completed_at = ? WHERE id = ?", (time.time(), run_id))
-            conn.commit()
+        finish_extraction(run_id, workers, headless)
 
     except Exception as e:
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("UPDATE runs SET status = 'error', error = ? WHERE id = ?", (str(e), run_id))
             conn.commit()
+
+def finish_extraction(run_id, workers, headless):
+    start_extraction_workers(run_id, DB_PATH, workers, headless)
+
+    # Save the Excel file before marking the run done, so the UI sees it immediately
+    try:
+        out_path = auto_export_path(run_id)
+        EXPORTS_DIR.mkdir(exist_ok=True)
+        write_export(run_id, out_path)
+        print(f"Results saved automatically to: {out_path}")
+    except Exception as e:
+        print(f"Automatic Excel save failed: {e}")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("UPDATE runs SET status = 'done', completed_at = ? WHERE id = ?", (time.time(), run_id))
+        conn.commit()
+
+def resume_pipeline(run_id, workers, headless):
+    try:
+        finish_extraction(run_id, workers, headless)
+    except Exception as e:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("UPDATE runs SET status = 'error', error = ? WHERE id = ?", (str(e), run_id))
+            conn.commit()
+
+def auto_export_path(run_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute("SELECT created_at FROM runs WHERE id = ?", (run_id,)).fetchone()
+    stamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(row[0] if row and row[0] else time.time()))
+    return EXPORTS_DIR / f"oldies_export_{stamp}_{run_id[:8]}.xlsx"
+
+def write_export(run_id, out_path):
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute("SELECT upc, sale_price, availability, shipping_days, fast_cheap_shipping, shipping_price, format, product_url FROM products WHERE run_id = ?", (run_id,)).fetchall()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Extracted Data"
+    ws.append(["UPC", "Sale Price", "Availability", "Shipping Days", "Fast N Cheap", "Shipping Price", "Format", "URL"])
+    for row in rows:
+        ws.append(row)
+    wb.save(out_path)
 
 
 @app.route('/api/progress/<run_id>', methods=['GET'])
@@ -145,6 +185,8 @@ def api_progress(run_id):
             rate = completed / elapsed
             eta = (total - completed) / rate if rate > 0 else 0
 
+        saved_file = auto_export_path(run_id)
+
         # Sync completed items in runs table
         conn.execute("UPDATE runs SET completed_items = ? WHERE id = ?", (completed, run_id))
         conn.commit()
@@ -156,7 +198,8 @@ def api_progress(run_id):
             "counts": counts,
             "elapsed": elapsed if run['status'] != 'done' else (run['completed_at'] - run['created_at']),
             "eta": eta,
-            "error": run['error']
+            "error": run['error'],
+            "auto_saved_file": saved_file.name if saved_file.exists() else None
         })
 
 @app.route('/api/rows/<run_id>', methods=['GET'])
@@ -182,18 +225,9 @@ def api_rows(run_id):
 
 @app.route('/api/export/<run_id>', methods=['GET'])
 def api_export(run_id):
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute("SELECT upc, sale_price, availability, shipping_days, fast_cheap_shipping, shipping_price, format, product_url FROM products WHERE run_id = ?", (run_id,)).fetchall()
-        
     temp_dir = Path(tempfile.gettempdir())
     out_path = temp_dir / f"export_{run_id}.xlsx"
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Extracted Data"
-    ws.append(["UPC", "Sale Price", "Availability", "Shipping Days", "Fast N Cheap", "Shipping Price", "Format", "URL"])
-    for row in rows:
-        ws.append(row)
-    wb.save(out_path)
+    write_export(run_id, out_path)
     
     return send_file(out_path, as_attachment=True, download_name="extracted_products.xlsx")
 
@@ -225,7 +259,7 @@ def api_resume(run_id):
         conn.execute("UPDATE runs SET status = 'extracting' WHERE id = ?", (run_id,))
         conn.commit()
         
-    threading.Thread(target=start_extraction_workers, args=(run_id, DB_PATH, run['workers'], run['headless']), daemon=True).start()
+    threading.Thread(target=resume_pipeline, args=(run_id, run['workers'], run['headless']), daemon=True).start()
     return jsonify({"status": "resumed"})
 
 @app.route('/api/clear_db', methods=['POST'])

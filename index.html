@@ -202,6 +202,7 @@
             <button class="btn btn-primary" id="startBtn">Start Scraping</button>
             <button class="btn btn-outline-danger" id="cancelBtn" disabled>Stop</button>
             <button class="btn btn-success mt-2" id="downloadBtn" disabled>Download Excel (.xlsx)</button>
+            <div class="small text-muted text-center" id="autoSaveNote" style="display:none; word-break: break-all;"></div>
             <button class="btn btn-warning mt-1" id="resumeBtn" style="display:none;">Resume Paused Run</button>
             <button class="btn btn-outline-secondary mt-3 btn-sm" id="clearDbBtn">🗑️ Clear Entire Database</button>
           </div>
@@ -278,9 +279,40 @@
       return `${m}:${s}`;
     }
 
+    const DOWNLOAD_LABEL = 'Download Excel (.xlsx)';
+    const DOWNLOADED_LABEL = '✓ Downloaded · Download Again';
+
+    function wasDownloaded(runId) {
+      try { return localStorage.getItem('downloaded_' + runId) === '1'; } catch (e) { return false; }
+    }
+
+    function markDownloaded(runId) {
+      try { localStorage.setItem('downloaded_' + runId, '1'); } catch (e) {}
+    }
+
     $(document).ready(function() {
       let currentRunId = null;
       let pollInterval = null;
+
+      function triggerDownload() {
+          if (!currentRunId) return;
+          markDownloaded(currentRunId);
+          $('#downloadBtn').text(DOWNLOADED_LABEL);
+          window.location.href = `/api/export/${currentRunId}`;
+      }
+
+      function showAutoSaveNote(data) {
+          if (data.auto_saved_file) {
+              $('#autoSaveNote').text('Auto-saved on server: exports/' + data.auto_saved_file).show();
+          } else {
+              $('#autoSaveNote').hide();
+          }
+      }
+
+      function resetDownloadButton() {
+          $('#downloadBtn').text(DOWNLOAD_LABEL).prop('disabled', true);
+          $('#autoSaveNote').hide();
+      }
 
       const table = $('#resultsTable').DataTable({
         serverSide: true,
@@ -336,11 +368,20 @@
         $('#progressBar').css('width', `${pct}%`);
 
         if (data.status === 'done' || data.status === 'cancelled' || data.status === 'error') {
+            const finishedWhileWatching = pollInterval !== null;
             stopPolling();
             $('#startBtn').prop('disabled', false);
             $('#cancelBtn').prop('disabled', true);
             $('#downloadBtn').prop('disabled', data.total === 0);
             $('#loadingIndicator').hide();
+            showAutoSaveNote(data);
+
+            // Download automatically once, the moment a run we were watching finishes
+            if (data.status === 'done' && data.total > 0 && finishedWhileWatching && !wasDownloaded(currentRunId)) {
+                triggerDownload();
+            } else if (wasDownloaded(currentRunId)) {
+                $('#downloadBtn').text(DOWNLOADED_LABEL);
+            }
         }
       }
 
@@ -392,7 +433,7 @@
 
         $('#startBtn').prop('disabled', true);
         $('#cancelBtn').prop('disabled', false);
-        $('#downloadBtn').prop('disabled', true);
+        resetDownloadButton();
         $('#resumeBtn').hide();
         $('#progressBar').css('width', '0%');
         $('#progressVal').text('0 / 0');
@@ -432,8 +473,7 @@
       });
 
       $('#downloadBtn').click(function() {
-          if (!currentRunId) return;
-          window.location.href = `/api/export/${currentRunId}`;
+          triggerDownload();
       });
 
       $('#clearDbBtn').click(function() {
@@ -449,7 +489,7 @@
                   $('#progressBar').css('width', '0%');
                   $('#startBtn').prop('disabled', false);
                   $('#cancelBtn').prop('disabled', true);
-                  $('#downloadBtn').prop('disabled', true);
+                  resetDownloadButton();
                   $('#resumeBtn').hide();
                   alert("Database completely cleared!");
               });
